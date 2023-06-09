@@ -1,5 +1,7 @@
 package controller;
 
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.List;
 
 import javax.servlet.http.HttpSession;
@@ -19,12 +21,47 @@ import exception.LoginException;
 import logic.Sale;
 import logic.ShopService;
 import logic.User;
+import util.CipherUtil;
 
 @Controller
 @RequestMapping("user")
 public class UserController {
 	@Autowired 
 	private ShopService service;
+	@Autowired
+	private CipherUtil util;
+	
+	private String emailEncrypt(String email, String userid) throws NoSuchAlgorithmException {
+		String plain = email;
+		String key = util.makehash(userid, "SHA-256");
+		String cipherEmail = util.encrypt(plain, key);
+		return cipherEmail;
+	}
+	
+	private  String passwordHash(String msg) throws NoSuchAlgorithmException {
+		MessageDigest md = MessageDigest.getInstance("SHA-256");
+		String hashpass = "";
+		byte[] plain = msg.getBytes();
+		byte[] hash = md.digest(plain);
+		for(byte b : hash) hashpass += String.format("%02X", b);
+		return hashpass;
+	}
+	
+	private String emailDecrypt(User user) {
+		try {
+			String key = util.makehash(user.getUserid(), "SHA-256");
+			String email = util.decrypt(user.getEmail(), key);
+			return email;
+		} catch(Exception e) {
+			e.printStackTrace();
+		}
+		return null;
+	}
+	
+	
+	
+//====================== private 메서드
+	
 	
 	@GetMapping("*")  //설정되지 않은 모든 요청시 호출되는 메서드
 	public ModelAndView join() {
@@ -32,8 +69,8 @@ public class UserController {
 		mav.addObject(new User());
 		return mav;
 	}
-	@PostMapping("join")
-	public ModelAndView userAdd(@Valid User user, BindingResult bresult) {
+	@PostMapping("join") //회원가입 모듈
+	public ModelAndView userAdd(@Valid User user, BindingResult bresult) throws NoSuchAlgorithmException {
 		ModelAndView mav = new ModelAndView();
 		if(bresult.hasErrors()) {
 			mav.getModel().putAll(bresult.getModel());
@@ -42,8 +79,14 @@ public class UserController {
 			bresult.reject("error.input.check");
 			return mav;
 		}
-		//정상 입력값 : 회원 가입 하기 => db의 useraccount 테이블에 저장
+		//정상 입력값 : 회원 가입 하기 => db의 usersecurity 테이블에 저장
 		try {
+			/*
+			 * password : SHA-512 해쉬값 변경
+			 * email    : AES 알고리즘으로 암호화
+			 */
+			user.setPassword(passwordHash(user.getPassword())); 
+			user.setEmail(emailEncrypt(user.getEmail(),user.getUserid())); 
 			service.userInsert(user);
 			mav.addObject("user",user);
 		}catch(DataIntegrityViolationException e) {
@@ -56,9 +99,12 @@ public class UserController {
 		mav.setViewName("redirect:login");
 		return mav;
 	}
+
+
+
 	@PostMapping("login")
 	public ModelAndView login
-	(@Valid User user, BindingResult bresult,HttpSession session) {
+	(@Valid User user, BindingResult bresult,HttpSession session) throws NoSuchAlgorithmException {
 		ModelAndView mav = new ModelAndView();
 		if(bresult.hasErrors()) {
 			mav.getModel().putAll(bresult.getModel());
@@ -76,6 +122,9 @@ public class UserController {
 		//   일치 : session.setAttribute("loginUser",dbUser) => 로그인 정보
 		//   불일치 : 비밀번호를 확인하세요. 출력 (error.login.password)
 		//3. mypage로 페이지 이동 => 404 오류 발생 (임시)
+		//user.getPassword().equals(dbUser.getPassword()
+		//user.getPassword() : 입력받은 데이터. => SHA-512 해쉬값으로 변경 필요 비밀번호 비교
+		user.setPassword(passwordHash(user.getPassword()));
 		if(user.getPassword().equals(dbUser.getPassword())) { //정상 로그인
 			session.setAttribute("loginUser", dbUser);
 			mav.setViewName("redirect:mypage?userid="+user.getUserid());
@@ -99,11 +148,13 @@ public class UserController {
 	public ModelAndView idCheckMypage(String userid,HttpSession session) {
 		ModelAndView mav = new ModelAndView();
 		User user = service.selectUserOne(userid);
+		user.setEmail(emailDecrypt(user)); //이메일 복구화
 		List<Sale> salelist = service.salelist(userid);
 		mav.addObject("user", user); //회원정보데이터
 		mav.addObject("salelist", salelist);  //주문목록
 		return mav;
 	}	
+
 	//로그아웃 컨트롤러 구현하기.
 	//로그아웃 후 login 페이지로 이동
 	@RequestMapping("logout")
@@ -116,12 +167,13 @@ public class UserController {
 	public ModelAndView idCheckUser(String userid,HttpSession session) {
 		ModelAndView mav = new ModelAndView();
 		User user = service.selectUserOne(userid);
+		user.setEmail(emailDecrypt(user)); //이메일 복구화
 		mav.addObject("user",user);
 		return mav;
 	}
 	@PostMapping("update")
 	public ModelAndView idCheckUpdate(@Valid User user,BindingResult bresult,
-			String userid,HttpSession session) {
+			String userid,HttpSession session) throws NoSuchAlgorithmException {
 		ModelAndView mav = new ModelAndView();
 		//입력값 검증
 		if(bresult.hasErrors()) {
@@ -131,13 +183,14 @@ public class UserController {
 		}
 		//비밀번호 검증
 		User loginUser = (User)session.getAttribute("loginUser");
-		if(!loginUser.getPassword().equals(user.getPassword())) {
+		if(!loginUser.getPassword().equals(this.passwordHash(user.getPassword()))) {
 			mav.getModel().putAll(bresult.getModel());
 			bresult.reject("error.login.password");
 			return mav;
 		}
 		//비밀번호 일치 => 데이터 수정
 		try {
+			user.setEmail(this.emailEncrypt(user.getEmail(),user.getUserid()));
 			service.userUpdate(user);
 			if(loginUser.getUserid().equals(user.getUserid()))
 			   session.setAttribute("loginUser", user);

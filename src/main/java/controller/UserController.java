@@ -221,7 +221,7 @@ public class UserController {
 	
 	@PostMapping("delete")
 	public String  idCheckdelete
-	       (String password, String userid,HttpSession session) {
+	       (String password, String userid,HttpSession session) throws NoSuchAlgorithmException {
 		// 관리자 탈퇴 불가
 		if(userid.equals("admin"))
 			throw new LoginException
@@ -230,7 +230,8 @@ public class UserController {
 		User loginUser = (User)session.getAttribute("loginUser");
 		//password : 입력된 비밀번호
 		//loginUser.getPassword() : 로그인 사용자의 비밀번호
-		if(!password.equals(loginUser.getPassword())) {
+//		password.equals(loginUser.getPassword())
+		if(!passwordHash(password).equals(loginUser.getPassword())) {
 			throw new LoginException
 			     ("비밀번호를 확인하세요.", "delete?userid="+userid);
 		}
@@ -266,15 +267,17 @@ public class UserController {
 	 */	
 	@PostMapping("password") 
 	public String loginCheckPasswordRtn
-	     (String password,String chgpass,HttpSession session) {
+	     (String password,String chgpass,HttpSession session) throws NoSuchAlgorithmException {
 		//비밀번호 검증
 		User loginUser = (User)session.getAttribute("loginUser");
 		//password : 현재비밀번호
 		//loginUser.getPassword() : 로그인된 비밀번호
-		if(!password.equals(loginUser.getPassword())) {
+//		password.equals(loginUser.getPassword())
+		if(!passwordHash(password).equals(loginUser.getPassword())) {
 		  throw new LoginException("비밀번호 오류 입니다.","password");
 		}
 		try {
+			chgpass = passwordHash(chgpass);
 			service.userChgpass(loginUser.getUserid(),chgpass);
 			loginUser.setPassword(chgpass); //로그인 정보에 비밀번호 수정
 		} catch(Exception e) {

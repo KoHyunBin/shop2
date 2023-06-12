@@ -30,14 +30,14 @@ public class UserController {
 	private ShopService service;
 	@Autowired
 	private CipherUtil util;
-	
+
 	private String emailEncrypt(String email, String userid) throws NoSuchAlgorithmException {
 		String plain = email;
 		String key = util.makehash(userid, "SHA-256");
 		String cipherEmail = util.encrypt(plain, key);
 		return cipherEmail;
 	}
-	
+
 	private  String passwordHash(String msg) throws NoSuchAlgorithmException {
 		MessageDigest md = MessageDigest.getInstance("SHA-256");
 		String hashpass = "";
@@ -46,7 +46,7 @@ public class UserController {
 		for(byte b : hash) hashpass += String.format("%02X", b);
 		return hashpass;
 	}
-	
+
 	private String emailDecrypt(User user) {
 		try {
 			String key = util.makehash(user.getUserid(), "SHA-256");
@@ -57,12 +57,12 @@ public class UserController {
 		}
 		return null;
 	}
-	
-	
-	
-//====================== private 메서드
-	
-	
+
+
+
+	//====================== private 메서드
+
+
 	@GetMapping("*")  //설정되지 않은 모든 요청시 호출되는 메서드
 	public ModelAndView join() {
 		ModelAndView mav = new ModelAndView();
@@ -90,7 +90,7 @@ public class UserController {
 			service.userInsert(user);
 			mav.addObject("user",user);
 		}catch(DataIntegrityViolationException e) {
-	//DataIntegrityViolationException : db에서 중복 key 오류시 발생되는 예외 객체
+			//DataIntegrityViolationException : db에서 중복 key 오류시 발생되는 예외 객체
 			e.printStackTrace();
 			bresult.reject("error.duplicate.user"); //global 오류 등록
 			mav.getModel().putAll(bresult.getModel());
@@ -193,7 +193,7 @@ public class UserController {
 			user.setEmail(this.emailEncrypt(user.getEmail(),user.getUserid()));
 			service.userUpdate(user);
 			if(loginUser.getUserid().equals(user.getUserid()))
-			   session.setAttribute("loginUser", user);
+				session.setAttribute("loginUser", user);
 			mav.setViewName("redirect:mypage?userid="+user.getUserid());
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -218,22 +218,22 @@ public class UserController {
 	 *   본인탈퇴 : 로그아웃, login 페이지 이동
 	 *   관리자탈퇴 : admin/list 페이지 이동 => 404 오류 발생 
 	 */
-	
+
 	@PostMapping("delete")
 	public String  idCheckdelete
-	       (String password, String userid,HttpSession session) throws NoSuchAlgorithmException {
+	(String password, String userid,HttpSession session) throws NoSuchAlgorithmException {
 		// 관리자 탈퇴 불가
 		if(userid.equals("admin"))
 			throw new LoginException
-			         ("관리자 탈퇴는 불가합니다.", "mypage?userid="+userid);
+			("관리자 탈퇴는 불가합니다.", "mypage?userid="+userid);
 		//비밀번호 검증 : 로그인된 정보
 		User loginUser = (User)session.getAttribute("loginUser");
 		//password : 입력된 비밀번호
 		//loginUser.getPassword() : 로그인 사용자의 비밀번호
-//		password.equals(loginUser.getPassword())
+		//		password.equals(loginUser.getPassword())
 		if(!passwordHash(password).equals(loginUser.getPassword())) {
 			throw new LoginException
-			     ("비밀번호를 확인하세요.", "delete?userid="+userid);
+			("비밀번호를 확인하세요.", "delete?userid="+userid);
 		}
 		//비밀번호 일치 : 고객정보 제거
 		try {
@@ -267,28 +267,28 @@ public class UserController {
 	 */	
 	@PostMapping("password") 
 	public String loginCheckPasswordRtn
-	     (String password,String chgpass,HttpSession session) throws NoSuchAlgorithmException {
+	(String password,String chgpass,HttpSession session) throws NoSuchAlgorithmException {
 		//비밀번호 검증
 		User loginUser = (User)session.getAttribute("loginUser");
 		//password : 현재비밀번호
 		//loginUser.getPassword() : 로그인된 비밀번호
-//		password.equals(loginUser.getPassword())
+		//		password.equals(loginUser.getPassword())
 		if(!passwordHash(password).equals(loginUser.getPassword())) {
-		  throw new LoginException("비밀번호 오류 입니다.","password");
+			throw new LoginException("비밀번호 오류 입니다.","password");
 		}
 		try {
 			chgpass = passwordHash(chgpass);
 			service.userChgpass(loginUser.getUserid(),chgpass);
 			loginUser.setPassword(chgpass); //로그인 정보에 비밀번호 수정
 		} catch(Exception e) {
-			  throw new LoginException
-			  ("비밀번호 수정시 db 오류 입니다.","password");
+			throw new LoginException
+			("비밀번호 수정시 db 오류 입니다.","password");
 		}
 		return "redirect:mypage?userid="+loginUser.getUserid();
 	}
 	// {url}search : {url} 지정되지 않음. *search 인 요청시 호출되는 메서드
 	@PostMapping("{url}search")
-	public ModelAndView search(User user, BindingResult bresult, @PathVariable String url) {
+	public ModelAndView search(User user, BindingResult bresult, @PathVariable String url) throws NoSuchAlgorithmException {
 		//@PathVariable : {url} 의 이름을 매개변수로 전달.
 		//   요청 : idsearch : url <= "id"
 		//   요청 : pwsearch : url <= "pw"
@@ -319,17 +319,52 @@ public class UserController {
 		//입력검증 정상완료.
 		if(user.getUserid() != null && user.getUserid().trim().equals(""))
 			user.setUserid(null);
+
 		/*                                         result
 		 * user.getUserid() == null : 아이디찾기 =>  아이디값 저장
 		 * user.getUserid() != null : 비밀번호찾기 => 비밀번호값 저장
 		 */
-		String result =  service.getSearch(user); //mybatis 구현시 해당 레코드가 없는 경우 결과값이 null임
-		                                          //결과값이 없는 경우 예외발생 없음 
-		if(result == null) {
+		//		String result =  service.getSearch(user); //mybatis 구현시 해당 레코드가 없는 경우 결과값이 null임
+		//결과값이 없는 경우 예외발생 없음 
+
+		String result = null;
+		if(user.getUserid() == null) {
+			List<User> list = service.getUserlist(user.getPhoneno());
+			System.out.println(list);
+			for(User u : list) {
+				System.out.println("email :" + this.emailDecrypt(u)); //복호화된 이메일로 저장 => 입력된 이메일과 비교
+				u.setEmail(this.emailDecrypt(u));
+				//u.getEmail() : db에 저장된 이메일을 복호화한 데이터
+				//user.getEmail() : 입력된 이메일 데이터
+				if(u.getEmail().equals(user.getEmail())) { //검색 성공 복호화된 이메일로 비교.
+					result= u.getUserid();
+				}
+			}
+		} else { //비밀번호 찾기(초기화)
+			//이메일 암호화
+			user.setEmail(this.emailEncrypt(user.getEmail(), user.getUserid()));
+			result = service.getSearch(user); // mybatis  구현시 해당 레코드가 없는 경우 결과값이 null임
+			// 결과값이 없는 경우 예외발생 없음
+			if(result != null) { //비밀번호 검색 성공 => 초기화. db에 비밀번호를 변경.
+				String pass = null;
+				try {
+					pass = util.makehash(user.getUserid(), "SHA-512");
+				} catch(NoSuchAlgorithmException e) {
+					e.printStackTrace();
+				}
+				//pass : 아이디의 SHA-512로 계산한 해쉬값
+				int index = (int)(Math.random() * (pass.length()-10));//비밀번호 해쉬값 일부분
+				result = pass.substring(index,index+6); //pass값의 임의의 위치에서 6자리값 랜덤 선택
+				//비밀번호 변경 => 비밀번호 초기화
+				service.userChgpass(user.getUserid(), passwordHash(result));
+
+			}
+		}
+		if(result == null) { //아이디 또는 비밀번호 검색 실패.
 			bresult.reject(code);
-		    mav.getModel().putAll(bresult.getModel());
-		    return mav;
-  	    }
+			mav.getModel().putAll(bresult.getModel());
+			return mav;
+		}
 		System.out.println("result=" + result);
 		mav.addObject("result",result);
 		mav.addObject("title",title);

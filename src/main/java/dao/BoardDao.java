@@ -17,6 +17,7 @@ import org.springframework.stereotype.Repository;
 
 import dao.mapper.BoardMapper;
 import logic.Board;
+import logic.Comment;
 
 @Repository
 public class BoardDao {

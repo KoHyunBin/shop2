@@ -23,6 +23,7 @@ import org.springframework.web.servlet.ModelAndView;
 import exception.BoardException;
 import exception.LoginException;
 import logic.Board;
+import logic.Comment;
 import logic.ShopService;
 
 @Controller
@@ -30,7 +31,7 @@ import logic.ShopService;
 public class BoardController {
 	@Autowired 
 	private ShopService service;
-	
+
 	@GetMapping("*")  //설정되지 않은 모든 요청시 호출되는 메서드
 	public ModelAndView write() {
 		ModelAndView mav = new ModelAndView();
@@ -45,7 +46,7 @@ public class BoardController {
 	 */
 	@PostMapping("write")
 	public ModelAndView writePost(@Valid Board board, BindingResult bresult,
-			   HttpServletRequest request) {
+			HttpServletRequest request) {
 		ModelAndView mav = new ModelAndView();
 		if(bresult.hasErrors()) {
 			mav.getModel().putAll(bresult.getModel());
@@ -70,38 +71,38 @@ public class BoardController {
 	 */
 	@RequestMapping("list")
 	public ModelAndView list(@RequestParam Map<String,String> param, HttpSession session) {
-//	public ModelAndView list(@RequestParam("page") Integer pageNum,String boardid, HttpSession session) {
-//		System.out.println(param);
+		//	public ModelAndView list(@RequestParam("page") Integer pageNum,String boardid, HttpSession session) {
+		//		System.out.println(param);
 		Integer pageNum = null;
 		if (param.get("pageNum") != null)
-		   pageNum = Integer.parseInt(param.get("pageNum"));
+			pageNum = Integer.parseInt(param.get("pageNum"));
 		String boardid = param.get("boardid");
 		String searchtype = param.get("searchtype");
 		String searchcontent = param.get("searchcontent");
 		ModelAndView mav = new ModelAndView();
 		if(pageNum == null || pageNum.toString().equals("")) {
-			   pageNum = 1; 
+			pageNum = 1; 
 		}
 		if(boardid == null || boardid.equals("")) {
 			boardid = "1"; 
 		}
 		session.setAttribute("boardid", boardid);
 		if(searchtype == null ||  searchcontent == null || 
-		   searchtype.trim().equals("") ||  searchcontent.trim().equals("")) {
+				searchtype.trim().equals("") ||  searchcontent.trim().equals("")) {
 			searchtype = null;
 			searchcontent = null;
 		}		
 		String boardName=null;
 		switch(boardid) {
-			case "1" : boardName = "공지사항"; break;
-			case "2" : boardName = "자유게시판"; break;
-			case "3" : boardName = "QNA"; break;
+		case "1" : boardName = "공지사항"; break;
+		case "2" : boardName = "자유게시판"; break;
+		case "3" : boardName = "QNA"; break;
 		}
 		int limit = 10;  //한페이지에 보여줄 게시물 건수
 		int listcount = service.boardcount(boardid,searchtype,searchcontent); //등록 게시물 건수
 		//boardlist : 현재 페이지에 보여줄 게시물 목록
 		List<Board> boardlist = service.boardlist
-				          (pageNum,limit,boardid,searchtype,searchcontent);
+				(pageNum,limit,boardid,searchtype,searchcontent);
 		//페이징 처리를 위한 값
 		int maxpage = (int)((double)listcount/limit + 0.95); //등록 건수에 따른 최대 페이지
 		int startpage = (int)((pageNum/10.0 + 0.9) - 1) * 10 + 1; // 페이지의 시작 번호
@@ -134,6 +135,13 @@ public class BoardController {
 			mav.addObject("boardName","자유게시판");
 		else if(board.getBoardid().equals("3"))
 			mav.addObject("boardName","QNA");
+		//댓글목록 화면에 전달
+		List<Comment> commlist = service.commentList(num);
+		mav.addObject("commlist",commlist);
+		//유효성 검증에 필요한 Comment 객체
+		Comment comm = new Comment();
+		comm.setNum(num);
+		mav.addObject(comm);
 		return mav;
 	}
 	@GetMapping({"reply","update","delete"})
@@ -169,22 +177,22 @@ public class BoardController {
 	public ModelAndView reply(@Valid Board board, BindingResult bresult) {
 		ModelAndView mav = new ModelAndView();
 		//유효성 검증
-    	if(bresult.hasErrors()) {
-    		Board dbboard = service.getBoard(board.getNum()); //원글 정보를 db에서 읽기
-    		Map<String,Object> map = bresult.getModel();
-    		Board b = (Board)map.get("board"); //화면에서 입력받은 값을 저장한 Board 객체
-    		b.setTitle(dbboard.getTitle());//원글의 제목으로 변경
+		if(bresult.hasErrors()) {
+			Board dbboard = service.getBoard(board.getNum()); //원글 정보를 db에서 읽기
+			Map<String,Object> map = bresult.getModel();
+			Board b = (Board)map.get("board"); //화면에서 입력받은 값을 저장한 Board 객체
+			b.setTitle(dbboard.getTitle());//원글의 제목으로 변경
 			mav.getModel().putAll(bresult.getModel());
 			return mav;
-    	}
-    	try {
-     	   service.boardReply(board);
-     	   mav.setViewName("redirect:list?boardid="+board.getBoardid());
-     	} catch(Exception e) {
-     		e.printStackTrace();
-     		throw new LoginException("답변등록시 오류 발생","reply?num="+board.getNum());
-     	}
- 	    return mav;    	
+		}
+		try {
+			service.boardReply(board);
+			mav.setViewName("redirect:list?boardid="+board.getBoardid());
+		} catch(Exception e) {
+			e.printStackTrace();
+			throw new LoginException("답변등록시 오류 발생","reply?num="+board.getNum());
+		}
+		return mav;    	
 	}	
 	/*
 	 * 1. 유효성 검증.
@@ -195,7 +203,7 @@ public class BoardController {
 	 */
 	@PostMapping("update")
 	public ModelAndView update(@Valid Board board, BindingResult bresult,
-			  HttpServletRequest request) {
+			HttpServletRequest request) {
 		ModelAndView mav = new ModelAndView();
 		if(bresult.hasErrors()) {
 			mav.getModel().putAll(bresult.getModel());
@@ -262,8 +270,32 @@ public class BoardController {
 		//request.getContextPath() : 프로젝트명(웹어플리케이션서버이름). shop1/ 
 		// http://localhost:8080/shop1/board/imgfile/cat2.jpg
 		String fileName = request.getContextPath() //웹어플리케이션 경로. 웹 url 정보
-				        + "/board/imgfile/" + upload.getOriginalFilename();
+				+ "/board/imgfile/" + upload.getOriginalFilename();
 		model.addAttribute("fileName",fileName);
-	    return "ckedit";//view 이름. /WEB-INF/view/ckedit.jsp
+		return "ckedit";//view 이름. /WEB-INF/view/ckedit.jsp
+	}
+
+	@RequestMapping("comment")
+	public ModelAndView comment(@Valid Comment com,BindingResult bresult) {
+		ModelAndView mav = new ModelAndView("board/detail");
+		if(bresult.hasErrors()) {
+			mav.getModel().putAll(bresult.getModel());
+			return mav;
+		}
+		int seq = service.maxseq(com.getNum());
+		com.setSeq(++seq);
+		service.commentInsert(com);
+		mav.setViewName("redirect:detail?num="+com.getNum()+"#comment");
+		return mav;
+	}
+
+	@RequestMapping("commdel")
+	public String commdel(int num, int seq,String pass) {
+		Comment c = service.commentOne(num,seq);
+		if(c.getPass().equals(pass)) {
+			service.commentdelete(num,seq,pass);
+		} else 
+			throw new BoardException("댓글수정오류", "detail?num="+c.getNum()+"#comment");
+		return "redirect:detail?num="+num+"#comment";
 	}
 }

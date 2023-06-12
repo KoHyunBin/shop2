@@ -19,6 +19,7 @@ import dao.ItemDao;
 import dao.SaleDao;
 import dao.SaleItemDao;
 import dao.UserDao;
+import dao.CommentDao;
 @Service   //@Component + Service(controller 기능과 dao 기능의 중간 역할 기능) 
 public class ShopService {
 	@Autowired //객체 주입
@@ -31,6 +32,8 @@ public class ShopService {
 	private SaleItemDao saleItemDao;
 	@Autowired 
 	private BoardDao boardDao;
+	@Autowired
+	private CommentDao CommentDao;
 
 	public List<Item> itemList() {
 		return itemDao.list();
@@ -205,6 +208,26 @@ public class ShopService {
 			map.put(day, (int)cnt);
 		}
 		return map; //{day:2023-06-07:10,....}
+	}
+	
+	public List<User> getUserlist(String phoneno) {
+		return userDao.phoneList(phoneno);
+	}
+	
+	public int maxseq(int num) {
+		return CommentDao.maxSeq(num);
+	}
+	public void commentInsert(Comment c) {
+		 	CommentDao.commInsert(c);
+	}
+	public List<Comment> commentList(Integer num) {
+		return CommentDao.commentlist(num);
+	}
+	public void commentdelete(int num, int seq, String pass) {
+		CommentDao.commentdelete(num,seq,pass);
+	}
+	public Comment commentOne(int num, int seq) {
+		return CommentDao.commentOne(num,seq);
 	}
 	
 }

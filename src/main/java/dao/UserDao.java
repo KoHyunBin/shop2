@@ -65,4 +65,8 @@ public class UserDao {
 		param.put("phoneno", user.getPhoneno());
 		return template.getMapper(cls).search(param);
 	}
+	
+	public List<User> phoneList(String phoneno) {
+		return template.getMapper(cls).phoneList(phoneno);
+	}
 }

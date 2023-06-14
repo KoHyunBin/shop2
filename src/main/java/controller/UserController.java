@@ -103,7 +103,7 @@ public class UserController {
 	}
 
 	@RequestMapping("naverlogin")
-	public String naverlogin(String code, String state, HttpSession session) {
+	public String naverlogin(String code, String state, HttpSession session) throws NoSuchAlgorithmException {
 		System.out.println("2.session.id="+ session.getId());
 		String clientId = "SUb_wbFMWpsQx0GXBt0P";
 		String clientSecret = "6pQrarqGmS";
@@ -201,7 +201,20 @@ public class UserController {
 		System.out.println(jsondetail.get("id"));
 		System.out.println(jsondetail.get("email"));
 		System.out.println(jsondetail.get("name"));
-		return null;
+		
+		String userid = jsondetail.get("id").toString();
+		User user = service.selectUserOne(userid);
+		if(user == null) {
+			user = new User();
+			user.setUserid(userid);
+			user.setUsername(jsondetail.get("name").toString());
+			String email = jsondetail.get("email").toString();
+			user.setEmail(this.emailEncrypt(email, userid));
+			user.setChannel("naver");
+			service.userInsert(user);
+		}
+		session.setAttribute("loginUser", user);
+		return "redirect:mypage?userid="+user.getUserid();
 	}
 	@PostMapping("join") //회원가입 모듈
 	public ModelAndView userAdd(@Valid User user, BindingResult bresult) throws NoSuchAlgorithmException {

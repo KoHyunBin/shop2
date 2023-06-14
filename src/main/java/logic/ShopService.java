@@ -20,6 +20,7 @@ import dao.SaleDao;
 import dao.SaleItemDao;
 import dao.UserDao;
 import dao.CommentDao;
+import dao.ExchangeDao;
 @Service   //@Component + Service(controller 기능과 dao 기능의 중간 역할 기능) 
 public class ShopService {
 	@Autowired //객체 주입
@@ -34,6 +35,9 @@ public class ShopService {
 	private BoardDao boardDao;
 	@Autowired
 	private CommentDao CommentDao;
+	@Autowired
+	private ExchangeDao ExchangeDao;
+	
 
 	public List<Item> itemList() {
 		return itemDao.list();
@@ -228,6 +232,10 @@ public class ShopService {
 	}
 	public Comment commentOne(int num, int seq) {
 		return CommentDao.commentOne(num,seq);
+	}
+	
+	public void exchangeInsert(Exchange exchange) {
+		ExchangeDao.insert(exchange);
 	}
 	
 }

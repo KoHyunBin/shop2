@@ -77,7 +77,7 @@ public class CountScheduler {
 	 *
 	 *
 	 */
-	@Scheduled(cron="0/5 * * * * ?")
+	@Scheduled(cron="0 16 10 * * ?")
 	public void execute3() {
 		Document doc = null;
 		List<List<String>> trlist = new ArrayList<>();  //미국,중국,일본,유로 통화들만 저장 목록

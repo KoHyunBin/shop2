@@ -19,6 +19,7 @@ import dao.ItemDao;
 import dao.SaleDao;
 import dao.SaleItemDao;
 import dao.UserDao;
+import util.CipherUtil;
 import dao.CommentDao;
 import dao.ExchangeDao;
 @Service   //@Component + Service(controller 기능과 dao 기능의 중간 역할 기능) 
@@ -37,7 +38,8 @@ public class ShopService {
 	private CommentDao CommentDao;
 	@Autowired
 	private ExchangeDao ExchangeDao;
-	
+	@Autowired
+	private CipherUtil util;
 
 	public List<Item> itemList() {
 		return itemDao.list();
@@ -236,6 +238,16 @@ public class ShopService {
 	
 	public void exchangeInsert(Exchange exchange) {
 		ExchangeDao.insert(exchange);
+	}
+	public String emailDecrypt(User user) {
+		try {
+			String key = util.makehash(user.getUserid(), "SHA-256");
+			String email = util.decrypt(user.getEmail(), key);
+			return email;
+		} catch(Exception e) {
+			e.printStackTrace();
+		}
+		return null;
 	}
 	
 }
